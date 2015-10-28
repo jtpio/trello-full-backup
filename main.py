@@ -11,7 +11,9 @@ import json
 
 # do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 1e8
+ATTACHMENT_REQUEST_TIMEOUT = 30 # seconds
 FILE_NAME_MAX_LENGTH = 255
+FILTERS = ['open', 'all']
 
 def sanitize_file_name(name):
 	return re.sub(r'[<>:\/\|\?\*]', '_', name)[-FILE_NAME_MAX_LENGTH:]
@@ -23,7 +25,9 @@ def write_file(file_name, obj, dumps=True):
 
 parser = argparse.ArgumentParser(description='Trello Full Backup Command Line Parameters')
 parser.add_argument('-d', metavar='DEST', nargs='?', help='Destination folder')
-parser.add_argument('--skip-archived-boards', nargs='?', default=False, help='Destination folder')
+parser.add_argument('-B', '--closed-boards', dest='closed_boards', action='store_const', default=0, const=1, help='Backup closed board')
+parser.add_argument('-L', '--archived-lists', dest='archived_lists', action='store_const', default=0, const=1, help='Backup archived lists')
+parser.add_argument('-C', '--archived-cards', dest='archived_cards', action='store_const', default=0, const=1, help='Backup archived cards')
 args = parser.parse_args()
 
 dest_dir = datetime.datetime.now().isoformat('_').replace(':', '-').split('.')[0] + '_backup'
@@ -48,15 +52,15 @@ TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
 auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
 
 boards_meta = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
-boards = [ b['id'] for b in boards_meta ]
+boards = [ b['id'] for b in boards_meta if not (args.closed_boards and b['closed']) ]
 
 for board in boards_meta:
 	board_details = requests.get(TRELLO_API + 'boards/' + board['id'] + auth + '&'+
 		'actions=all&' +
 		'actions_limit=1000&' +
-		'cards=all&' +
+		'cards=' + FILTERS[args.archived_cards] + '&' +
 		'card_attachments=true&' +
-		'lists=all&' +
+		'lists=' + FILTERS[args.archived_lists] + '&' +
 		'members=all&' +
 		'member_fields=all&' +
 		'checklists=all&' +
@@ -101,30 +105,27 @@ for board in boards_meta:
 			write_file(meta_file_name, c)
 			write_file(description_file_name, c['desc'], dumps=False)
 
-
 			# Only download attachments below the size limit
 			attachments = [a for a in c['attachments'] if a['bytes'] != None and a['bytes'] < ATTACHMENT_BYTE_LIMIT]
 
-			if len(attachments) == 0:
-				continue
+			if len(attachments) > 0:
+				# Enter attachments directory
+				os.mkdir('attachments')
+				os.chdir('attachments')
 
-			# Enter attachments directory
-			os.mkdir('attachments')
-			os.chdir('attachments')
+				# Download attachments
+				for id_attachment, attachment in enumerate(attachments):
+					attachment_name = sanitize_file_name(str(id_attachment) + '_' + attachment['name'])
 
-			# Download attachments
-			for id_attachment, attachment in enumerate(attachments):
-				attachment_name = sanitize_file_name(str(id_attachment) + '_' + attachment['name'])
+					print('Saving attachment', attachment_name)
+					attachment_content = requests.get(attachment['url'], stream=True, timeout=ATTACHMENT_REQUEST_TIMEOUT)
+					with open(attachment_name, 'wb') as f:
+						for chunk in attachment_content.iter_content(chunk_size=1024):
+							if chunk:
+								f.write(chunk)
 
-				print('Saving attachment', attachment_name)
-				attachment_content = requests.get(attachment['url'], stream=True)
-				with open(attachment_name, 'wb') as f:
-					for chunk in attachment_content.iter_content(chunk_size=1024):
-						if chunk:
-							f.write(chunk)
-
-			# Exit attachments directory
-			os.chdir('..')
+				# Exit attachments directory
+				os.chdir('..')
 
 			# Exit card directory
 			os.chdir('..')
