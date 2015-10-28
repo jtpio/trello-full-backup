@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import itertools
 import os
@@ -7,10 +9,12 @@ import datetime
 import requests
 import json
 
-ATTACHMENT_BYTE_LIMIT = 50000000
+# do not download files over 100 MB by default
+ATTACHMENT_BYTE_LIMIT = 1e8
+FILE_NAME_MAX_LENGTH = 255
 
 def sanitize_file_name(name):
-	return re.sub(r'[<>:\/\|\?\*]', '_', name)
+	return re.sub(r'[<>:\/\|\?\*]', '_', name)[-FILE_NAME_MAX_LENGTH:]
 
 def write_file(file_name, obj, dumps=True):
 	with open(file_name, 'w') as f:
@@ -22,7 +26,7 @@ parser.add_argument('-d', metavar='DEST', nargs='?', help='Destination folder')
 parser.add_argument('--skip-archived-boards', nargs='?', default=False, help='Destination folder')
 args = parser.parse_args()
 
-dest_dir = datetime.datetime.now().isoformat('_').replace(':', '_').split('.')[0]
+dest_dir = datetime.datetime.now().isoformat('_').replace(':', '-').split('.')[0] + '_backup'
 
 if args.d:
 	dest_dir = args.d
@@ -44,7 +48,7 @@ TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
 auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
 
 boards_meta = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
-boards = [b['id'] for b in boards_meta]
+boards = [ b['id'] for b in boards_meta ]
 
 for board in boards_meta:
 	board_details = requests.get(TRELLO_API + 'boards/' + board['id'] + auth + '&'+
@@ -61,8 +65,9 @@ for board in boards_meta:
 
 	board_dir = sanitize_file_name(board_details['name'])
 
-	# Make and enter sub directory
 	os.mkdir(board_dir)
+
+	# Enter board directory
 	os.chdir(board_dir)
 
 	file_name = board_dir + '_full.json'
@@ -71,28 +76,46 @@ for board in boards_meta:
 
 	lists = {}
 	for list_id, cards in itertools.groupby(board_details['cards'], key=lambda x: x['idList']):
-		lists[list_id] = list(cards)
+		lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
-	for ls in board_details['lists']:
-		list_name = str(ls['pos']) + '_' + ls['name']
+	for id_list, ls in enumerate(board_details['lists']):
+		list_name = sanitize_file_name(str(id_list) + '_' + ls['name'])
 		os.mkdir(list_name)
+
+		# Enter list directory
 		os.chdir(list_name)
-		cards = lists[ls['id']]
-		for c in cards:
-			card_name = str(c['pos']) + '_' + c['name']
+		cards = lists[ls['id']] if ls['id'] in lists else []
+
+		for id_card, c in enumerate(cards):
+			card_name = sanitize_file_name(str(id_card) + '_' + c['name'])
 			os.mkdir(card_name)
+
+			# Enter card directory
 			os.chdir(card_name)
+
 			meta_file_name = 'card.json'
 			description_file_name = 'description.md'
+
+			print('Saving', card_name)
+			print('Saving', meta_file_name, 'and', description_file_name)
 			write_file(meta_file_name, c)
 			write_file(description_file_name, c['desc'], dumps=False)
 
-			# Download attachments
+
+			# Only download attachments below the size limit
+			attachments = [a for a in c['attachments'] if a['bytes'] != None and a['bytes'] < ATTACHMENT_BYTE_LIMIT]
+
+			if len(attachments) == 0:
+				continue
+
+			# Enter attachments directory
 			os.mkdir('attachments')
 			os.chdir('attachments')
-			attachments = [a for a in c['attachments'] if a['bytes'] < ATTACHMENT_BYTE_LIMIT]
-			for attachment in attachments:
-				attachment_name = attachment['id'] + '_' + attachment['name']
+
+			# Download attachments
+			for id_attachment, attachment in enumerate(attachments):
+				attachment_name = sanitize_file_name(str(id_attachment) + '_' + attachment['name'])
+
 				print('Saving attachment', attachment_name)
 				attachment_content = requests.get(attachment['url'], stream=True)
 				with open(attachment_name, 'wb') as f:
@@ -111,7 +134,5 @@ for board in boards_meta:
 
 	# Exit sub directory
 	os.chdir('..')
-
-	break
 
 print('Trello Full Backup Completed!')
