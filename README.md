@@ -13,28 +13,28 @@ The script also creates a **folder tree structure** corresponding to the way dat
 Here is an example of what the tree structure looks like:
 
 ```
-2015-11-12_19-41-36_backup/
-└── A Test Board
-    ├── 0_To Do
-    │   ├── 0_Task3
-    │   │   ├── attachments
-    │   │   │   └── 0_chessboard.png
-    │   │   ├── card.json
-    │   │   └── description.md
-    │   └── 1_Task4
-    │       ├── card.json
-    │       └── description.md
-    ├── 1_In Progress
-    │   └── 0_Task2
-    │       ├── card.json
-    │       └── description.md
-    ├── 2_Done
-    │   └── 0_Task1
-    │       ├── attachments
-    │       │   └── 0_test.png
-    │       ├── card.json
-    │       └── description.md
-    └── A Test Board_full.json
+2015-11-12_23-28-36_backup/
+└── me
+    └── A Test Board
+        ├── 0_To Do
+        │   ├── 0_Task3
+        │   │   ├── attachments
+        │   │   │   └── 0_chessboard.png
+        │   │   ├── card.json
+        │   │   └── description.md
+        │   └── 1_Task4
+        │       ├── card.json
+        │       └── description.md
+        ├── 1_In Progress
+        │   └── 0_Task2
+        │       ├── card.json
+        │       └── description.md
+        ├── 2_Done
+        │   └── 0_Task1
+        │       ├── attachments
+        │       ├── card.json
+        │       └── description.md
+        └── A Test Board_full.json
 ```
 
 - Lists and cards have their names prefixed by their position to keep the order
