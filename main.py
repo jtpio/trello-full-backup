@@ -19,7 +19,7 @@ FILTERS = ['open', 'all']
 
 # Parse arguments
 parser = argparse.ArgumentParser(
-    description='Trello Full Backup Command Line Parameters'
+    description='Trello Full Backup'
 )
 # The destination folder to save the backup to
 parser.add_argument('-d',
@@ -65,6 +65,14 @@ if os.access(dest_dir, os.R_OK):
 
 os.mkdir(dest_dir)
 os.chdir(dest_dir)
+
+print('==== Backup initiated')
+print('Backing up to:', dest_dir)
+print('Backup closed board:', bool(args.closed_boards))
+print('Backup archived lists:', bool(args.archived_lists))
+print('Backup archived cards:', bool(args.archived_cards))
+print('==== ')
+print()
 
 
 def sanitize_file_name(name):
@@ -115,7 +123,6 @@ TRELLO_API = 'https://api.trello.com/1/'
 
 # Read the API keys from the environment variables
 TRELLO_API_KEY = os.getenv('TRELLO_API_KEY', '')
-TRELLO_API_SECRET = os.getenv('TRELLO_API_SECRET', '')
 TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
 
 auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
