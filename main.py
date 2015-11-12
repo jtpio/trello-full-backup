@@ -9,18 +9,26 @@ import datetime
 import requests
 import json
 
-# do not download files over 100 MB by default
+# Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 1e8
 ATTACHMENT_REQUEST_TIMEOUT = 30  # seconds
 ATTACHMENT_DOWNLOAD_RETRIES = 3  # Retry 3 times at most
 FILE_NAME_MAX_LENGTH = 255
 FILTERS = ['open', 'all']
 
+TRELLO_API = 'https://api.trello.com/1/'
+
+# Read the API keys from the environment variables
+TRELLO_API_KEY = os.getenv('TRELLO_API_KEY', '')
+TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
+
+auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
 
 # Parse arguments
 parser = argparse.ArgumentParser(
     description='Trello Full Backup'
 )
+
 # The destination folder to save the backup to
 parser.add_argument('-d',
                     metavar='DEST',
@@ -50,6 +58,14 @@ parser.add_argument('-C', '--archived-cards',
                     default=0,
                     const=1,
                     help='Backup archived cards')
+
+# Backup the cards that are archived
+parser.add_argument('-o', '--organizations',
+                    dest='orgs',
+                    action='store_const',
+                    default=False,
+                    const=True,
+                    help='Backup organizations')
 
 args = parser.parse_args()
 
@@ -85,6 +101,10 @@ def write_file(file_name, obj, dumps=True):
         f.write(to_write)
 
 
+def filter_boards(boards):
+    return [b for b in boards if not (args.closed_boards and b['closed'])]
+
+
 def download_attachments(c):
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -106,9 +126,8 @@ def download_attachments(c):
                 content = requests.get(attachment['url'],
                                        stream=True,
                                        timeout=ATTACHMENT_REQUEST_TIMEOUT)
-            except Exception as e:
+            except Exception:
                 sys.stderr.write('Could not download ' + attachment_name)
-                sys.stderr.write(e)
 
             with open(attachment_name, 'wb') as f:
                 for chunk in content.iter_content(chunk_size=1024):
@@ -119,19 +138,7 @@ def download_attachments(c):
         os.chdir('..')
 
 
-TRELLO_API = 'https://api.trello.com/1/'
-
-# Read the API keys from the environment variables
-TRELLO_API_KEY = os.getenv('TRELLO_API_KEY', '')
-TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
-
-auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
-
-boards_meta = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
-boards = [b['id'] for b in boards_meta
-          if not (args.closed_boards and b['closed'])]
-
-for board in boards_meta:
+def backup_board(board):
     board_details = requests.get(TRELLO_API + 'boards/' + board['id'] +
                                  auth + '&' +
                                  'actions=all&' +
@@ -194,6 +201,28 @@ for board in boards_meta:
         os.chdir('..')
 
     # Exit sub directory
+    os.chdir('..')
+
+org_boards_id = {
+    'me': []
+}
+org_boards_data = {
+    'me': []
+}
+
+org_boards_data['me'] = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
+
+if args.orgs:
+    orgs = requests.get(TRELLO_API + 'members/me/organizations' + auth).json()
+    for org in orgs:
+        org_boards_data[org['name']] = requests.get(TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth).json()
+
+for org, boards in org_boards_data.items():
+    os.mkdir(org)
+    os.chdir(org)
+    boards = filter_boards(boards)
+    for board in boards:
+        backup_board(board)
     os.chdir('..')
 
 print('Trello Full Backup Completed!')

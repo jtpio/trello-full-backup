@@ -95,8 +95,3 @@ optional arguments:
   -L, --archived-lists  Backup archived lists
   -C, --archived-cards  Backup archived cards
 ```
-
-
-## TODO
-
-- Backup organization boards
