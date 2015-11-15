@@ -72,7 +72,7 @@ parser.add_argument('-a', '--attachment-size',
                     dest='attachment_size',
                     nargs=1,
                     type=int,
-                    help='Attachement size limit in bytes')
+                    help='Attachment size limit in bytes')
 
 args = parser.parse_args()
 

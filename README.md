@@ -84,7 +84,7 @@ You can specify your own destination directory, but the script **does not** crea
 ```
 
 ```
-usage: main.py [-h] [-d [DEST]] [-B] [-L] [-C]
+usage: main.py [-h] [-d [DEST]] [-B] [-L] [-C] [-o] [-a ATTACHMENT_SIZE]
 
 Trello Full Backup
 
@@ -94,4 +94,7 @@ optional arguments:
   -B, --closed-boards   Backup closed board
   -L, --archived-lists  Backup archived lists
   -C, --archived-cards  Backup archived cards
+  -o, --organizations   Backup organizations
+  -a ATTACHMENT_SIZE, --attachment-size ATTACHMENT_SIZE
+                        Attachment size limit in bytes
 ```
