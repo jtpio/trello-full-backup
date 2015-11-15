@@ -103,20 +103,28 @@ print()
 
 
 def sanitize_file_name(name):
+    """ Stip problematic characters for a file name """
+
     return re.sub(r'[<>:\/\|\?\*]', '_', name)[-FILE_NAME_MAX_LENGTH:]
 
 
 def write_file(file_name, obj, dumps=True):
+    """ Write <obj> to the file <file_name> """
+
     with open(file_name, 'w') as f:
         to_write = json.dumps(obj, indent=4) if dumps else obj
         f.write(to_write)
 
 
 def filter_boards(boards):
+    """ Return a list of the boards to retrieve (closed or not) """
+
     return [b for b in boards if not (args.closed_boards and b['closed'])]
 
 
 def download_attachments(c):
+    """ Download the attachments for the card <c> """
+
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
                    if a['bytes'] != None and
@@ -149,7 +157,32 @@ def download_attachments(c):
         os.chdir('..')
 
 
+def backup_card(id_card, c):
+    """ Backup the card <c> with id <id_card> """
+
+    card_name = sanitize_file_name(str(id_card) + '_' + c['name'])
+    os.mkdir(card_name)
+
+    # Enter card directory
+    os.chdir(card_name)
+
+    meta_file_name = 'card.json'
+    description_file_name = 'description.md'
+
+    print('Saving', card_name)
+    print('Saving', meta_file_name, 'and', description_file_name)
+    write_file(meta_file_name, c)
+    write_file(description_file_name, c['desc'], dumps=False)
+
+    download_attachments(c)
+
+    # Exit card directory
+    os.chdir('..')
+
+
 def backup_board(board):
+    """ Backup the board """
+
     board_details = requests.get(TRELLO_API + 'boards/' + board['id'] +
                                  auth + '&' +
                                  'actions=all&' +
@@ -189,24 +222,7 @@ def backup_board(board):
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            card_name = sanitize_file_name(str(id_card) + '_' + c['name'])
-            os.mkdir(card_name)
-
-            # Enter card directory
-            os.chdir(card_name)
-
-            meta_file_name = 'card.json'
-            description_file_name = 'description.md'
-
-            print('Saving', card_name)
-            print('Saving', meta_file_name, 'and', description_file_name)
-            write_file(meta_file_name, c)
-            write_file(description_file_name, c['desc'], dumps=False)
-
-            download_attachments(c)
-
-            # Exit card directory
-            os.chdir('..')
+            backup_card(id_card, c)
 
         # Exit list directory
         os.chdir('..')
