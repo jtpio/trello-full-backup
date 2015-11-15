@@ -117,7 +117,7 @@ def write_file(file_name, obj, dumps=True):
 
 def filter_boards(boards):
     """ Return a list of the boards to retrieve (closed or not) """
-    return [b for b in boards if not (args.closed_boards and b['closed'])]
+    return [b for b in boards if not b['closed'] or (args.closed_boards and b['closed'])]
 
 
 def download_attachments(c):
@@ -144,6 +144,7 @@ def download_attachments(c):
                                        timeout=ATTACHMENT_REQUEST_TIMEOUT)
             except Exception:
                 sys.stderr.write('Could not download ' + attachment_name)
+                continue
 
             with open(attachment_name, 'wb') as f:
                 for chunk in content.iter_content(chunk_size=1024):
