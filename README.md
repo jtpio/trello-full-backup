@@ -56,6 +56,12 @@ export TRELLO_API_KEY=yourapikey
 export TRELLO_TOKEN=yourtoken
 ```
 
+Install requests if you don't have it:
+
+```
+pip install requests
+```
+
 Run:
 
 ```
