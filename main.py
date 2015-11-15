@@ -67,6 +67,13 @@ parser.add_argument('-o', '--organizations',
                     const=True,
                     help='Backup organizations')
 
+# Set the size limit for the attachments
+parser.add_argument('-a', '--attachment-size',
+                    dest='attachment_size',
+                    nargs=1,
+                    type=int,
+                    help='Attachement size limit in bytes')
+
 args = parser.parse_args()
 
 dest_dir = datetime.datetime.now().isoformat('_')
@@ -78,6 +85,10 @@ if args.d:
 if os.access(dest_dir, os.R_OK):
     print('Folder', dest_dir, 'already exists')
     sys.exit(1)
+
+# Override new attachment size limit
+if args.attachment_size:
+    ATTACHMENT_BYTE_LIMIT = args.attachment_size[-1]
 
 os.mkdir(dest_dir)
 os.chdir(dest_dir)
@@ -203,19 +214,15 @@ def backup_board(board):
     # Exit sub directory
     os.chdir('..')
 
-org_boards_id = {
-    'me': []
-}
-org_boards_data = {
-    'me': []
-}
+org_boards_data = {}
 
 org_boards_data['me'] = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
 
 if args.orgs:
     orgs = requests.get(TRELLO_API + 'members/me/organizations' + auth).json()
     for org in orgs:
-        org_boards_data[org['name']] = requests.get(TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth).json()
+        boards_url = TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth
+        org_boards_data[org['name']] = requests.get(boards_url).json()
 
 for org, boards in org_boards_data.items():
     os.mkdir(org)
