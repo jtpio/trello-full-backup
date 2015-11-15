@@ -98,6 +98,7 @@ print('Backing up to:', dest_dir)
 print('Backup closed board:', bool(args.closed_boards))
 print('Backup archived lists:', bool(args.archived_lists))
 print('Backup archived cards:', bool(args.archived_cards))
+print('Attachment size limit (bytes):', ATTACHMENT_BYTE_LIMIT)
 print('==== ')
 print()
 
