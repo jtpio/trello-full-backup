@@ -11,7 +11,7 @@ import json
 
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
-ATTACHMENT_REQUEST_TIMEOUT = 30  # seconds
+ATTACHMENT_REQUEST_TIMEOUT = 30  # 30 seconds
 ATTACHMENT_DOWNLOAD_RETRIES = 3  # Retry 3 times at most
 FILE_NAME_MAX_LENGTH = 255
 FILTERS = ['open', 'all']
@@ -117,7 +117,7 @@ def write_file(file_name, obj, dumps=True):
 
 def filter_boards(boards):
     """ Return a list of the boards to retrieve (closed or not) """
-    return [b for b in boards if not b['closed'] or (args.closed_boards and b['closed'])]
+    return [b for b in boards if not b['closed'] or args.closed_boards]
 
 
 def download_attachments(c):
