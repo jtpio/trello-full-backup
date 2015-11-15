@@ -105,13 +105,11 @@ print()
 
 def sanitize_file_name(name):
     """ Stip problematic characters for a file name """
-
     return re.sub(r'[<>:\/\|\?\*]', '_', name)[-FILE_NAME_MAX_LENGTH:]
 
 
 def write_file(file_name, obj, dumps=True):
     """ Write <obj> to the file <file_name> """
-
     with open(file_name, 'w') as f:
         to_write = json.dumps(obj, indent=4) if dumps else obj
         f.write(to_write)
@@ -119,13 +117,11 @@ def write_file(file_name, obj, dumps=True):
 
 def filter_boards(boards):
     """ Return a list of the boards to retrieve (closed or not) """
-
     return [b for b in boards if not (args.closed_boards and b['closed'])]
 
 
 def download_attachments(c):
     """ Download the attachments for the card <c> """
-
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
                    if a['bytes'] != None and
@@ -160,7 +156,6 @@ def download_attachments(c):
 
 def backup_card(id_card, c):
     """ Backup the card <c> with id <id_card> """
-
     card_name = sanitize_file_name(str(id_card) + '_' + c['name'])
     os.mkdir(card_name)
 
@@ -183,7 +178,6 @@ def backup_card(id_card, c):
 
 def backup_board(board):
     """ Backup the board """
-
     board_details = requests.get(TRELLO_API + 'boards/' + board['id'] +
                                  auth + '&' +
                                  'actions=all&' +
