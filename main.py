@@ -72,7 +72,8 @@ parser.add_argument('-a', '--attachment-size',
                     dest='attachment_size',
                     nargs=1,
                     type=int,
-                    help='Attachment size limit in bytes')
+                    help='Attachment size limit in bytes. ' +
+                    'Set to -1 to disable the limit')
 
 args = parser.parse_args()
 
@@ -125,7 +126,8 @@ def download_attachments(c):
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
                    if a['bytes'] != None and
-                   a['bytes'] < ATTACHMENT_BYTE_LIMIT]
+                   (a['bytes'] < ATTACHMENT_BYTE_LIMIT or
+                   ATTACHMENT_BYTE_LIMIT == -1)]
 
     if len(attachments) > 0:
         # Enter attachments directory
@@ -228,13 +230,16 @@ def backup_board(board):
 
 org_boards_data = {}
 
-org_boards_data['me'] = requests.get(TRELLO_API + 'members/me/boards' + auth).json()
+my_boards_url = TRELLO_API + 'members/me/boards' + auth
+org_boards_data['me'] = requests.get(my_boards_url).json()
 
+orgs = []
 if args.orgs:
     orgs = requests.get(TRELLO_API + 'members/me/organizations' + auth).json()
-    for org in orgs:
-        boards_url = TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth
-        org_boards_data[org['name']] = requests.get(boards_url).json()
+
+for org in orgs:
+    boards_url = TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth
+    org_boards_data[org['name']] = requests.get(boards_url).json()
 
 for org, boards in org_boards_data.items():
     os.mkdir(org)
