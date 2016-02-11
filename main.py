@@ -145,7 +145,7 @@ def download_attachments(c):
                 sys.stderr.write('Could not download ' + attachment_name)
                 continue
 
-            with open(attachment_name, 'wb', encoding='utf-8') as f:
+            with open(attachment_name, 'wb') as f:
                 for chunk in content.iter_content(chunk_size=1024):
                     if chunk:
                         f.write(chunk)
