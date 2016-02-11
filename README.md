@@ -102,5 +102,6 @@ optional arguments:
   -C, --archived-cards  Backup archived cards
   -o, --organizations   Backup organizations
   -a ATTACHMENT_SIZE, --attachment-size ATTACHMENT_SIZE
-                        Attachment size limit in bytes
+                        Attachment size limit in bytes. Set to -1 to disable
+                        the limit
 ```

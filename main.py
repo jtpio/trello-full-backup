@@ -70,7 +70,8 @@ parser.add_argument('-o', '--organizations',
 # Set the size limit for the attachments
 parser.add_argument('-a', '--attachment-size',
                     dest='attachment_size',
-                    nargs=1,
+                    nargs='?',
+                    default=ATTACHMENT_BYTE_LIMIT,
                     type=int,
                     help='Attachment size limit in bytes. ' +
                     'Set to -1 to disable the limit')
@@ -87,10 +88,6 @@ if os.access(dest_dir, os.R_OK):
     print('Folder', dest_dir, 'already exists')
     sys.exit(1)
 
-# Override new attachment size limit
-if args.attachment_size:
-    ATTACHMENT_BYTE_LIMIT = args.attachment_size[-1]
-
 os.mkdir(dest_dir)
 os.chdir(dest_dir)
 
@@ -99,7 +96,7 @@ print('Backing up to:', dest_dir)
 print('Backup closed board:', bool(args.closed_boards))
 print('Backup archived lists:', bool(args.archived_lists))
 print('Backup archived cards:', bool(args.archived_cards))
-print('Attachment size limit (bytes):', ATTACHMENT_BYTE_LIMIT)
+print('Attachment size limit (bytes):', args.attachment_size)
 print('==== ')
 print()
 
@@ -111,7 +108,7 @@ def sanitize_file_name(name):
 
 def write_file(file_name, obj, dumps=True):
     """ Write <obj> to the file <file_name> """
-    with open(file_name, 'w') as f:
+    with open(file_name, 'w', encoding='utf-8') as f:
         to_write = json.dumps(obj, indent=4) if dumps else obj
         f.write(to_write)
 
@@ -126,8 +123,8 @@ def download_attachments(c):
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
                    if a['bytes'] != None and
-                   (a['bytes'] < ATTACHMENT_BYTE_LIMIT or
-                   ATTACHMENT_BYTE_LIMIT == -1)]
+                   (a['bytes'] < args.attachment_size or
+                   args.attachment_size == -1)]
 
     if len(attachments) > 0:
         # Enter attachments directory
@@ -148,7 +145,7 @@ def download_attachments(c):
                 sys.stderr.write('Could not download ' + attachment_name)
                 continue
 
-            with open(attachment_name, 'wb') as f:
+            with open(attachment_name, 'wb', encoding='utf-8') as f:
                 for chunk in content.iter_content(chunk_size=1024):
                     if chunk:
                         f.write(chunk)
