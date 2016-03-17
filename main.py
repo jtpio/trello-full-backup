@@ -184,6 +184,7 @@ def backup_board(board):
                                  'actions_limit=1000&' +
                                  'cards=' + FILTERS[args.archived_cards] + '&' +
                                  'card_attachments=true&' +
+                                 'labels=all&' +
                                  'lists=' + FILTERS[args.archived_lists] + '&' +
                                  'members=all&' +
                                  'member_fields=all&' +
