@@ -109,7 +109,7 @@ def sanitize_file_name(name):
 def write_file(file_name, obj, dumps=True):
     """ Write <obj> to the file <file_name> """
     with open(file_name, 'w', encoding='utf-8') as f:
-        to_write = json.dumps(obj, indent=4) if dumps else obj
+        to_write = json.dumps(obj, indent=4, sort_keys=True) if dumps else obj
         f.write(to_write)
 
 
