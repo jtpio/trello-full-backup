@@ -11,7 +11,7 @@ import json
 ATTACHMENT_BYTE_LIMIT = 100000000
 ATTACHMENT_REQUEST_TIMEOUT = 30  # 30 seconds
 ATTACHMENT_DOWNLOAD_RETRIES = 3  # Retry 3 times at most
-FILE_NAME_MAX_LENGTH = 255
+FILE_NAME_MAX_LENGTH = 100
 FILTERS = ['open', 'all']
 
 API = 'https://api.trello.com/1/'
@@ -25,7 +25,7 @@ auth = '?key={}&token={}'.format(API_KEY, API_TOKEN)
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
-    return re.sub(r'[<>:\/\|\?\*]', '_', name)[-FILE_NAME_MAX_LENGTH:]
+    return re.sub(r'[<>:\/\|\?\*\']', '_', name)[:FILE_NAME_MAX_LENGTH]
 
 
 def write_file(file_name, obj, dumps=True):
@@ -54,8 +54,8 @@ def download_attachments(c, max_size):
 
         # Download attachments
         for id_attachment, attachment in enumerate(attachments):
-            attachment_name = sanitize_file_name(str(id_attachment) +
-                                                 '_' + attachment['name'])
+            attachment_name = '{}_{}'.format(id_attachment, attachment['name'])
+            attachment_name = sanitize_file_name(attachment_name)
 
             print('Saving attachment', attachment_name)
             try:
@@ -63,7 +63,7 @@ def download_attachments(c, max_size):
                                        stream=True,
                                        timeout=ATTACHMENT_REQUEST_TIMEOUT)
             except Exception:
-                sys.stderr.write('Could not download ' + attachment_name)
+                sys.stderr.write('Failed download: {}'.format(attachment_name))
                 continue
 
             with open(attachment_name, 'wb') as f:
@@ -119,7 +119,7 @@ def backup_board(board, args):
     # Enter board directory
     os.chdir(board_dir)
 
-    file_name = board_dir + '_full.json'
+    file_name = '{}_full.json'.format(board_dir)
     print('Saving full json for board',
           board_details['name'], 'with id', board['id'], 'to', file_name)
     write_file(file_name, board_details)
