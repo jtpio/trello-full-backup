@@ -1,9 +1,13 @@
 Trello Full Backup
 ==================
 
-**Python 3** script to backup everything from Trello.
+.. image:: https://img.shields.io/pypi/v/trello-full-backup.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/trello-full-backup
 
-The script does a backup of:
+.. image:: https://img.shields.io/pypi/pyversions/trello-full-backup.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/trello-full-backup
+
+Backup everything from Trello:
 
 - boards, open and closed, as json files
 - lists, open and archived, as json files
