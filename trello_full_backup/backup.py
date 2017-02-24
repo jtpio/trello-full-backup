@@ -14,13 +14,13 @@ ATTACHMENT_DOWNLOAD_RETRIES = 3  # Retry 3 times at most
 FILE_NAME_MAX_LENGTH = 255
 FILTERS = ['open', 'all']
 
-TRELLO_API = 'https://api.trello.com/1/'
+API = 'https://api.trello.com/1/'
 
 # Read the API keys from the environment variables
-TRELLO_API_KEY = os.getenv('TRELLO_API_KEY', '')
-TRELLO_TOKEN = os.getenv('TRELLO_TOKEN', '')
+API_KEY = os.getenv('TRELLO_API_KEY', '')
+API_TOKEN = os.getenv('TRELLO_TOKEN', '')
 
-auth = '?key=' + TRELLO_API_KEY + '&token=' + TRELLO_TOKEN
+auth = '?key={}&token={}'.format(API_KEY, API_TOKEN)
 
 
 def sanitize_file_name(name):
@@ -77,7 +77,7 @@ def download_attachments(c, max_size):
 
 def backup_card(id_card, c, attachment_size):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = sanitize_file_name(str(id_card) + '_' + c['name'])
+    card_name = sanitize_file_name('{}_{}'.format(id_card, c['name']))
     os.mkdir(card_name)
 
     # Enter card directory
@@ -99,18 +99,18 @@ def backup_card(id_card, c, attachment_size):
 
 def backup_board(board, args):
     ''' Backup the board '''
-    board_details = requests.get((
-        f'{TRELLO_API}boards/{board["id"]}{auth}&'
-        f'actions=all&actions_limit=1000&'
-        f'cards={FILTERS[args.archived_cards]}&'
-        f'card_attachments=true&'
-        f'labels=all&'
-        f'lists={FILTERS[args.archived_lists]}&'
-        f'members=all&'
-        f'member_fields=all&'
-        f'checklists=all&'
-        f'fields=all'
-    )).json()
+    board_details = requests.get(''.join((
+        '{}boards/{}{}&'.format(API, board["id"], auth),
+        'actions=all&actions_limit=1000&',
+        'cards={}&'.format(FILTERS[args.archived_cards]),
+        'card_attachments=true&',
+        'labels=all&',
+        'lists={}&'.format(FILTERS[args.archived_lists]),
+        'members=all&',
+        'member_fields=all&',
+        'checklists=all&',
+        'fields=all'
+    ))).json()
 
     board_dir = sanitize_file_name(board_details['name'])
 
@@ -130,7 +130,7 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        list_name = sanitize_file_name(str(id_list) + '_' + ls['name'])
+        list_name = sanitize_file_name('{}_{}'.format(id_list, ls['name']))
         os.mkdir(list_name)
 
         # Enter list directory
@@ -204,7 +204,7 @@ def cli():
     args = parser.parse_args()
 
     dest_dir = datetime.datetime.now().isoformat('_')
-    dest_dir = dest_dir.replace(':', '-').split('.')[0] + '_backup'
+    dest_dir = '{}_backup'.format(dest_dir.replace(':', '-').split('.')[0])
 
     if args.d:
         dest_dir = args.d
@@ -227,15 +227,16 @@ def cli():
 
     org_boards_data = {}
 
-    my_boards_url = TRELLO_API + 'members/me/boards' + auth
+    my_boards_url = '{}members/me/boards{}'.format(API, auth)
     org_boards_data['me'] = requests.get(my_boards_url).json()
 
     orgs = []
     if args.orgs:
-        orgs = requests.get(TRELLO_API + 'members/me/organizations' + auth).json()
+        org_url = '{}members/me/organizations{}'.format(API, auth)
+        orgs = requests.get(org_url).json()
 
     for org in orgs:
-        boards_url = TRELLO_API + 'organizations/' + org['id'] + '/boards' + auth
+        boards_url = '{}organizations/{}/boards{}'.format(API, org['id'], auth)
         org_boards_data[org['name']] = requests.get(boards_url).json()
 
     for org, boards in org_boards_data.items():
