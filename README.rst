@@ -53,6 +53,25 @@ Here is an example of what the tree structure looks like:
 - The attachments are downloaded to a separate folder
 - The rest stays in the json file
 
+
+Run with Docker
+---------------
+
+The easiest way to execute the script with the default parameters (if you have Docker):
+
+::
+
+    docker run -t -e TRELLO_API_KEY=YOUR_KEY -e TRELLO_TOKEN=YOUR_TOKEN -v /backups:/app jtpio/trello-full-backup
+
+This will create a new folder on your host system in the `backups` directory. Feel free to adjust it based on your host system (GNU/Linux, Mac OS, Windows...).
+
+To pass different parameters, for example to avoid downloading attachments:
+
+::
+
+    docker run -t -e TRELLO_API_KEY=YOUR_KEY -e TRELLO_TOKEN=YOUR_TOKEN -v /backups:/app jtpio/trello-full-backup trello-full-backup -a 0
+
+
 Install
 -------
 
