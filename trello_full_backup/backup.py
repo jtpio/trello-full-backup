@@ -10,7 +10,6 @@ import json
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
 ATTACHMENT_REQUEST_TIMEOUT = 30  # 30 seconds
-ATTACHMENT_DOWNLOAD_RETRIES = 3  # Retry 3 times at most
 FILE_NAME_MAX_LENGTH = 100
 FILTERS = ['open', 'all']
 
