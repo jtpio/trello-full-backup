@@ -23,11 +23,21 @@ auth = '?key={}&token={}'.format(API_KEY, API_TOKEN)
 
 
 def mkdir(name):
+    ''' Make a folder if it does not exist already '''
     if not os.access(name, os.R_OK):
         os.mkdir(name)
 
 def get_extension(filename):
+    ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
+
+def get_name(backup_mode, real_name, backup_name, id):
+    ''' Get back the name for the backup mode or the real name in the card.
+        If there is an ID, keep it
+    '''
+    if backup_mode:
+        return '{}_{}'.format(id, backup_name)
+    return '{}_{}'.format(id, sanitize_file_name(real_name))
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
@@ -46,7 +56,7 @@ def filter_boards(boards, closed):
     return [b for b in boards if not b['closed'] or closed]
 
 
-def download_attachments(c, max_size, backup=False):
+def download_attachments(c, max_size, backup_mode=False):
     ''' Download the attachments for the card <c> '''
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -60,13 +70,13 @@ def download_attachments(c, max_size, backup=False):
 
         # Download attachments
         for id_attachment, attachment in enumerate(attachments):
-            attachment_name = '{}_{}'.format(id_attachment, attachment['name'])
-            attachment_name = sanitize_file_name(attachment_name)
+            extension = get_extension(attachment["name"])
+            # We keep the size in bytes in order to backup modifications in the file
+            attachment_name = get_name(backup_mode, attachment["name"],
+                                       attachment['id'] + "_" + str(attachment['bytes']) + extension,
+                                       id_attachment)
 
-            if backup:
-                extension = get_extension(attachment_name)
-                attachment_name=attachment['id'] + "_" + str(attachment['bytes']) + extension
-
+            # We check if the file already exists, if it is the case we skip it
             if not os.path.isfile(attachment_name):
                 print('Saving attachment', attachment_name)
                 try:
@@ -88,12 +98,9 @@ def download_attachments(c, max_size, backup=False):
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size, backup=False):
+def backup_card(id_card, c, attachment_size, backup_mode=False):
     ''' Backup the card <c> with id <id_card> '''
-
-    card_name = sanitize_file_name('{}_{}'.format(id_card, c['name']))
-    if backup:
-        card_name = c['shortLink']
+    card_name = get_name(backup_mode, c["name"], c['shortLink'], id_card)
 
     mkdir(card_name)
 
@@ -108,7 +115,7 @@ def backup_card(id_card, c, attachment_size, backup=False):
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
 
-    download_attachments(c, attachment_size, backup)
+    download_attachments(c, attachment_size, backup_mode)
 
     # Exit card directory
     os.chdir('..')
@@ -116,6 +123,9 @@ def backup_card(id_card, c, attachment_size, backup=False):
 
 def backup_board(board, args):
     ''' Backup the board '''
+
+    backup_mode = bool(args.backup)
+
     board_details = requests.get(''.join((
         '{}boards/{}{}&'.format(API, board["id"], auth),
         'actions=all&actions_limit=1000&',
@@ -147,10 +157,7 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        if bool(args.backup):
-            list_name = ls["id"]
-        else:
-            list_name = sanitize_file_name('{}_{}'.format(id_list, ls['name']))
+        list_name = get_name(backup_mode, ls['name'], ls["id"], id_list)
 
         mkdir(list_name)
 
@@ -159,14 +166,13 @@ def backup_board(board, args):
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            backup_card(id_card, c, args.attachment_size, bool(args.backup))
+            backup_card(id_card, c, args.attachment_size, backup_mode)
 
         # Exit list directory
         os.chdir('..')
 
     # Exit sub directory
     os.chdir('..')
-
 
 def cli():
 
