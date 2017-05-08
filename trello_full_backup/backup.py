@@ -22,6 +22,13 @@ API_TOKEN = os.getenv('TRELLO_TOKEN', '')
 auth = '?key={}&token={}'.format(API_KEY, API_TOKEN)
 
 
+def mkdir(name):
+    if not os.access(name, os.R_OK):
+        os.mkdir(name)
+
+def get_extension(filename):
+    return os.path.splitext(filename)[1]
+
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
     return re.sub(r'[<>:\/\|\?\*\']', '_', name)[:FILE_NAME_MAX_LENGTH]
@@ -39,7 +46,7 @@ def filter_boards(boards, closed):
     return [b for b in boards if not b['closed'] or closed]
 
 
-def download_attachments(c, max_size):
+def download_attachments(c, max_size, backup=False):
     ''' Download the attachments for the card <c> '''
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -48,7 +55,7 @@ def download_attachments(c, max_size):
 
     if len(attachments) > 0:
         # Enter attachments directory
-        os.mkdir('attachments')
+        mkdir('attachments')
         os.chdir('attachments')
 
         # Download attachments
@@ -56,28 +63,39 @@ def download_attachments(c, max_size):
             attachment_name = '{}_{}'.format(id_attachment, attachment['name'])
             attachment_name = sanitize_file_name(attachment_name)
 
-            print('Saving attachment', attachment_name)
-            try:
-                content = requests.get(attachment['url'],
-                                       stream=True,
-                                       timeout=ATTACHMENT_REQUEST_TIMEOUT)
-            except Exception:
-                sys.stderr.write('Failed download: {}'.format(attachment_name))
-                continue
+            if backup:
+                extension = get_extension(attachment_name)
+                attachment_name=attachment['id'] + "_" + str(attachment['bytes']) + extension
 
-            with open(attachment_name, 'wb') as f:
-                for chunk in content.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
+            if not os.path.isfile(attachment_name):
+                print('Saving attachment', attachment_name)
+                try:
+                    content = requests.get(attachment['url'],
+                                           stream=True,
+                                           timeout=ATTACHMENT_REQUEST_TIMEOUT)
+                except Exception:
+                    sys.stderr.write('Failed download: {}'.format(attachment_name))
+                    continue
+
+                with open(attachment_name, 'wb') as f:
+                    for chunk in content.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
+            else:
+                print('Attachment', attachment_name, 'exists already.')
 
         # Exit attachments directory
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size):
+def backup_card(id_card, c, attachment_size, backup=False):
     ''' Backup the card <c> with id <id_card> '''
+
     card_name = sanitize_file_name('{}_{}'.format(id_card, c['name']))
-    os.mkdir(card_name)
+    if backup:
+        card_name = c['shortLink']
+
+    mkdir(card_name)
 
     # Enter card directory
     os.chdir(card_name)
@@ -90,7 +108,7 @@ def backup_card(id_card, c, attachment_size):
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
 
-    download_attachments(c, attachment_size)
+    download_attachments(c, attachment_size, backup)
 
     # Exit card directory
     os.chdir('..')
@@ -113,7 +131,7 @@ def backup_board(board, args):
 
     board_dir = sanitize_file_name(board_details['name'])
 
-    os.mkdir(board_dir)
+    mkdir(board_dir)
 
     # Enter board directory
     os.chdir(board_dir)
@@ -129,15 +147,19 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        list_name = sanitize_file_name('{}_{}'.format(id_list, ls['name']))
-        os.mkdir(list_name)
+        if bool(args.backup):
+            list_name = ls["id"]
+        else:
+            list_name = sanitize_file_name('{}_{}'.format(id_list, ls['name']))
+
+        mkdir(list_name)
 
         # Enter list directory
         os.chdir(list_name)
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            backup_card(id_card, c, args.attachment_size)
+            backup_card(id_card, c, args.attachment_size, bool(args.backup))
 
         # Exit list directory
         os.chdir('..')
@@ -158,6 +180,15 @@ def cli():
                         metavar='DEST',
                         nargs='?',
                         help='Destination folder')
+
+    # Backup mode. Replace folder names by tokens and
+    # don't download the already existing attachments
+    parser.add_argument('-b', '--backup',
+                        dest='backup',
+                        action='store_const',
+                        default=False,
+                        const=True,
+                        help='Backup mode: Change names for tokens and only upload new attachments')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',
@@ -209,14 +240,17 @@ def cli():
         dest_dir = args.d
 
     if os.access(dest_dir, os.R_OK):
-        print('Folder', dest_dir, 'already exists')
-        sys.exit(1)
+        if not bool(args.backup):
+            print('Folder', dest_dir, 'already exists')
+            sys.exit(1)
 
-    os.mkdir(dest_dir)
+    mkdir(dest_dir)
+
     os.chdir(dest_dir)
 
     print('==== Backup initiated')
     print('Backing up to:', dest_dir)
+    print('Backup mode:', bool(args.backup))
     print('Backup closed board:', bool(args.closed_boards))
     print('Backup archived lists:', bool(args.archived_lists))
     print('Backup archived cards:', bool(args.archived_cards))
@@ -239,7 +273,7 @@ def cli():
         org_boards_data[org['name']] = requests.get(boards_url).json()
 
     for org, boards in org_boards_data.items():
-        os.mkdir(org)
+        mkdir(org)
         os.chdir(org)
         boards = filter_boards(boards, args.closed_boards)
         for board in boards:
