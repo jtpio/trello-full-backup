@@ -31,11 +31,11 @@ def get_extension(filename):
     ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
 
-def get_name(incremental, real_name, backup_name, id): # TODO tokenize instead of incremental mode
-    ''' Get back the name for the incremental mode or the real name in the card.
+def get_name(tokenize, real_name, backup_name, id):
+    ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
-    if incremental:
+    if tokenize:
         return '{}_{}'.format(id, backup_name)
     return '{}_{}'.format(id, sanitize_file_name(real_name))
 
@@ -56,7 +56,7 @@ def filter_boards(boards, closed):
     return [b for b in boards if not b['closed'] or closed]
 
 
-def download_attachments(c, max_size, incremental=False):
+def download_attachments(c, max_size, tokenize=False):
     ''' Download the attachments for the card <c> '''
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -72,7 +72,7 @@ def download_attachments(c, max_size, incremental=False):
         for id_attachment, attachment in enumerate(attachments):
             extension = get_extension(attachment["name"])
             # We keep the size in bytes in order to backup modifications in the file
-            attachment_name = get_name(incremental, attachment["name"],
+            attachment_name = get_name(tokenize, attachment["name"],
                                        attachment['id'] + "_" + str(attachment['bytes']) + extension,
                                        id_attachment)
 
@@ -98,9 +98,9 @@ def download_attachments(c, max_size, incremental=False):
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size, incremental=False):
+def backup_card(id_card, c, attachment_size, tokenize=False):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = get_name(incremental, c["name"], c['shortLink'], id_card)
+    card_name = get_name(tokenize, c["name"], c['shortLink'], id_card)
 
     mkdir(card_name)
 
@@ -115,7 +115,7 @@ def backup_card(id_card, c, attachment_size, incremental=False):
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
 
-    download_attachments(c, attachment_size, incremental)
+    download_attachments(c, attachment_size, tokenize)
 
     # Exit card directory
     os.chdir('..')
@@ -124,7 +124,7 @@ def backup_card(id_card, c, attachment_size, incremental=False):
 def backup_board(board, args):
     ''' Backup the board '''
 
-    incremental = bool(args.backup)
+    tokenize = bool(args.tokenize)
 
     board_details = requests.get(''.join((
         '{}boards/{}{}&'.format(API, board["id"], auth),
@@ -157,7 +157,7 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        list_name = get_name(incremental, ls['name'], ls["id"], id_list)
+        list_name = get_name(tokenize, ls['name'], ls["id"], id_list)
 
         mkdir(list_name)
 
@@ -166,7 +166,7 @@ def backup_board(board, args):
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            incremental_card(id_card, c, args.attachment_size, incremental)
+            backup_card(id_card, c, args.attachment_size, tokenize)
 
         # Exit list directory
         os.chdir('..')
@@ -187,8 +187,6 @@ def cli():
                         nargs='?',
                         help='Destination folder')
 
-    # TODO Replace folder names by tokens
-
     # incremental mode don't download the
     # already existing attachments
     parser.add_argument('-i', '--incremental',
@@ -197,6 +195,14 @@ def cli():
                         default=False,
                         const=True,
                         help='incremental mode: Change names for tokens and only upload new attachments')
+
+    # Tokenize the names for folders and files
+    parser.add_argument('-t', '--tokenize',
+                        dest='tokenize',
+                        action='store_const',
+                        default=False,
+                        const=True,
+                        help='Tokenize the names for folders and files. Useful for scripts.')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',
@@ -258,7 +264,8 @@ def cli():
 
     print('==== Backup initiated')
     print('Backing up to:', dest_dir)
-    print('incremental:', bool(args.incremental))
+    print('Incremental:', bool(args.incremental))
+    print('Tokenize:', bool(args.tokenize))
     print('Backup closed board:', bool(args.closed_boards))
     print('Backup archived lists:', bool(args.archived_lists))
     print('Backup archived cards:', bool(args.archived_cards))
