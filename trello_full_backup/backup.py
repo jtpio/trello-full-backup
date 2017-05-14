@@ -194,7 +194,7 @@ def cli():
                         action='store_const',
                         default=False,
                         const=True,
-                        help='incremental mode: Change names for tokens and only upload new attachments')
+                        help='Backup in an already existing folder incrementally')
 
     # Tokenize the names for folders and files
     parser.add_argument('-t', '--tokenize',
@@ -202,7 +202,7 @@ def cli():
                         action='store_const',
                         default=False,
                         const=True,
-                        help='Tokenize the names for folders and files. Useful for scripts.')
+                        help='Tokenize the names for folders and files. Useful for scripts')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',

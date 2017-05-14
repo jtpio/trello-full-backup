@@ -133,10 +133,9 @@ Options
     optional arguments:
       -h, --help            show this help message and exit
       -d [DEST]             Destination folder
-      -i, --incremental     incremental mode: Change names for tokens and only
-                            upload new attachments
+      -i, --incremental     Backup in an already existing folder incrementally
       -t, --tokenize        Tokenize the names for folders and files. Useful for
-                            scripts.
+                            scripts
       -B, --closed-boards   Backup closed board
       -L, --archived-lists  Backup archived lists
       -C, --archived-cards  Backup archived cards
