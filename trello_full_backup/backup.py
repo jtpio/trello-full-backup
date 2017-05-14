@@ -31,11 +31,11 @@ def get_extension(filename):
     ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
 
-def get_name(backup_mode, real_name, backup_name, id):
-    ''' Get back the name for the backup mode or the real name in the card.
+def get_name(incremental, real_name, backup_name, id): # TODO tokenize instead of incremental mode
+    ''' Get back the name for the incremental mode or the real name in the card.
         If there is an ID, keep it
     '''
-    if backup_mode:
+    if incremental:
         return '{}_{}'.format(id, backup_name)
     return '{}_{}'.format(id, sanitize_file_name(real_name))
 
@@ -56,7 +56,7 @@ def filter_boards(boards, closed):
     return [b for b in boards if not b['closed'] or closed]
 
 
-def download_attachments(c, max_size, backup_mode=False):
+def download_attachments(c, max_size, incremental=False):
     ''' Download the attachments for the card <c> '''
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -72,7 +72,7 @@ def download_attachments(c, max_size, backup_mode=False):
         for id_attachment, attachment in enumerate(attachments):
             extension = get_extension(attachment["name"])
             # We keep the size in bytes in order to backup modifications in the file
-            attachment_name = get_name(backup_mode, attachment["name"],
+            attachment_name = get_name(incremental, attachment["name"],
                                        attachment['id'] + "_" + str(attachment['bytes']) + extension,
                                        id_attachment)
 
@@ -98,9 +98,9 @@ def download_attachments(c, max_size, backup_mode=False):
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size, backup_mode=False):
+def backup_card(id_card, c, attachment_size, incremental=False):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = get_name(backup_mode, c["name"], c['shortLink'], id_card)
+    card_name = get_name(incremental, c["name"], c['shortLink'], id_card)
 
     mkdir(card_name)
 
@@ -115,7 +115,7 @@ def backup_card(id_card, c, attachment_size, backup_mode=False):
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
 
-    download_attachments(c, attachment_size, backup_mode)
+    download_attachments(c, attachment_size, incremental)
 
     # Exit card directory
     os.chdir('..')
@@ -124,7 +124,7 @@ def backup_card(id_card, c, attachment_size, backup_mode=False):
 def backup_board(board, args):
     ''' Backup the board '''
 
-    backup_mode = bool(args.backup)
+    incremental = bool(args.backup)
 
     board_details = requests.get(''.join((
         '{}boards/{}{}&'.format(API, board["id"], auth),
@@ -157,7 +157,7 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        list_name = get_name(backup_mode, ls['name'], ls["id"], id_list)
+        list_name = get_name(incremental, ls['name'], ls["id"], id_list)
 
         mkdir(list_name)
 
@@ -166,7 +166,7 @@ def backup_board(board, args):
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            backup_card(id_card, c, args.attachment_size, backup_mode)
+            incremental_card(id_card, c, args.attachment_size, incremental)
 
         # Exit list directory
         os.chdir('..')
@@ -187,14 +187,16 @@ def cli():
                         nargs='?',
                         help='Destination folder')
 
-    # Backup mode. Replace folder names by tokens and
-    # don't download the already existing attachments
-    parser.add_argument('-b', '--backup',
-                        dest='backup',
+    # TODO Replace folder names by tokens
+
+    # incremental mode don't download the
+    # already existing attachments
+    parser.add_argument('-i', '--incremental',
+                        dest='incremental',
                         action='store_const',
                         default=False,
                         const=True,
-                        help='Backup mode: Change names for tokens and only upload new attachments')
+                        help='incremental mode: Change names for tokens and only upload new attachments')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',
@@ -246,7 +248,7 @@ def cli():
         dest_dir = args.d
 
     if os.access(dest_dir, os.R_OK):
-        if not bool(args.backup):
+        if not bool(args.incremental):
             print('Folder', dest_dir, 'already exists')
             sys.exit(1)
 
@@ -256,7 +258,7 @@ def cli():
 
     print('==== Backup initiated')
     print('Backing up to:', dest_dir)
-    print('Backup mode:', bool(args.backup))
+    print('incremental:', bool(args.incremental))
     print('Backup closed board:', bool(args.closed_boards))
     print('Backup archived lists:', bool(args.archived_lists))
     print('Backup archived cards:', bool(args.archived_cards))
