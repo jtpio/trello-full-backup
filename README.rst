@@ -126,19 +126,22 @@ Options
 
 ::
 
-    usage: trello-full-backup [-b] [-h] [-d [DEST]] [-B] [-L] [-C] [-o] [-a ATTACHMENT_SIZE]
+    usage: backup.py [-h] [-d [DEST]] [-i] [-t] [-B] [-L] [-C] [-o]
 
     Trello Full Backup
 
     optional arguments:
-      -b, --backup          Backup mode: Change names for tokens and only upload new attachments
       -h, --help            show this help message and exit
       -d [DEST]             Destination folder
+      -i, --incremental     incremental mode: Change names for tokens and only
+                            upload new attachments
+      -t, --tokenize        Tokenize the names for folders and files. Useful for
+                            scripts.
       -B, --closed-boards   Backup closed board
       -L, --archived-lists  Backup archived lists
       -C, --archived-cards  Backup archived cards
       -o, --organizations   Backup organizations
-      -a ATTACHMENT_SIZE, --attachment-size ATTACHMENT_SIZE
+      -a [ATTACHMENT_SIZE], --attachment-size [ATTACHMENT_SIZE]
                             Attachment size limit in bytes. Set to -1 to disable
                             the limit
 
