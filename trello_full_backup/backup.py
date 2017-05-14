@@ -31,13 +31,13 @@ def get_extension(filename):
     ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
 
-def get_name(tokenize, real_name, backup_name, id):
+def get_name(tokenize, real_name, backup_name, element_id):
     ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
     if tokenize:
-        return '{}_{}'.format(id, backup_name)
-    return '{}_{}'.format(id, sanitize_file_name(real_name))
+        return '{}_{}'.format(element_id, backup_name)
+    return '{}_{}'.format(element_id, sanitize_file_name(real_name))
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
