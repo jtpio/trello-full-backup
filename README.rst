@@ -126,7 +126,8 @@ Options
 
 ::
 
-    usage: backup.py [-h] [-d [DEST]] [-i] [-t] [-B] [-L] [-C] [-o]
+    usage: trello-full-backup [-h] [-d [DEST]] [-i] [-t] [-B] [-L] [-C] [-o]
+                              [-a [ATTACHMENT_SIZE]]
 
     Trello Full Backup
 
@@ -144,8 +145,8 @@ Options
                             Attachment size limit in bytes. Set to -1 to disable
                             the limit
 
-Backup mode
+Incremental mode
 -----------
-The backup mode is useful for scripts. It will replace the names of the folders in each board by unique tokens.
+The incremental mode is useful for scripts. It will replace the names of the folders in each board by unique tokens.
 Furthermore, it allows the user to specify the same directory for backup.
 This will update all the json and description.md files. However it will download the attachment only if they have changed from the last backup.
