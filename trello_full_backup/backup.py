@@ -27,17 +27,19 @@ def mkdir(name):
     if not os.access(name, os.R_OK):
         os.mkdir(name)
 
+
 def get_extension(filename):
     ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
+
 
 def get_name(tokenize, real_name, backup_name, element_id):
     ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
-    if tokenize:
-        return '{}_{}'.format(element_id, backup_name)
-    return '{}_{}'.format(element_id, sanitize_file_name(real_name))
+    name = backup_name if tokenize else sanitize_file_name(real_name)
+    return '{}_{}'.format(element_id, name)
+
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
@@ -71,28 +73,32 @@ def download_attachments(c, max_size, tokenize=False):
         # Download attachments
         for id_attachment, attachment in enumerate(attachments):
             extension = get_extension(attachment["name"])
-            # We keep the size in bytes in order to backup modifications in the file
+            # Keep the size in bytes to backup modifications in the file
+            backup_name = '{}_{}{}'.format(attachment['id'],
+                                           attachment['bytes'],
+                                           extension)
             attachment_name = get_name(tokenize, attachment["name"],
-                                       attachment['id'] + "_" + str(attachment['bytes']) + extension,
+                                       backup_name,
                                        id_attachment)
 
             # We check if the file already exists, if it is the case we skip it
-            if not os.path.isfile(attachment_name):
-                print('Saving attachment', attachment_name)
-                try:
-                    content = requests.get(attachment['url'],
-                                           stream=True,
-                                           timeout=ATTACHMENT_REQUEST_TIMEOUT)
-                except Exception:
-                    sys.stderr.write('Failed download: {}'.format(attachment_name))
-                    continue
-
-                with open(attachment_name, 'wb') as f:
-                    for chunk in content.iter_content(chunk_size=1024):
-                        if chunk:
-                            f.write(chunk)
-            else:
+            if os.path.isfile(attachment_name):
                 print('Attachment', attachment_name, 'exists already.')
+                continue
+
+            print('Saving attachment', attachment_name)
+            try:
+                content = requests.get(attachment['url'],
+                                       stream=True,
+                                       timeout=ATTACHMENT_REQUEST_TIMEOUT)
+            except Exception:
+                sys.stderr.write('Failed download: {}'.format(attachment_name))
+                continue
+
+            with open(attachment_name, 'wb') as f:
+                for chunk in content.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
 
         # Exit attachments directory
         os.chdir('..')
@@ -174,6 +180,7 @@ def backup_board(board, args):
     # Exit sub directory
     os.chdir('..')
 
+
 def cli():
 
     # Parse arguments
@@ -194,7 +201,7 @@ def cli():
                         action='store_const',
                         default=False,
                         const=True,
-                        help='Backup in an already existing folder incrementally')
+                        help='Backup incrementally (existing folder)')
 
     # Tokenize the names for folders and files
     parser.add_argument('-t', '--tokenize',
@@ -202,7 +209,7 @@ def cli():
                         action='store_const',
                         default=False,
                         const=True,
-                        help='Tokenize the names for folders and files. Useful for scripts')
+                        help='Name folders and files using the shortlink')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',
