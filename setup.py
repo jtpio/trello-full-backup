@@ -12,7 +12,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='trello-full-backup',
     packages=find_packages(),
-    version='0.2.1',
+    version='0.2.3',
     author='Jeremy Tuloup',
     author_email='jerem@jtp.io',
     url='https://github.com/jtpio/trello-full-backup',

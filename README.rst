@@ -146,7 +146,7 @@ Options
                             the limit
 
 Incremental mode
------------
+----------------
 The incremental mode is useful for scripts. It will replace the names of the folders in each board by unique tokens.
 Furthermore, it allows the user to specify the same directory for backup.
 This will update all the json and description.md files. However it will download the attachment only if they have changed from the last backup.
