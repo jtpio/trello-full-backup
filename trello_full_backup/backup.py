@@ -235,7 +235,7 @@ def cli():
                         const=1,
                         help='Backup archived cards')
 
-    # Backup the cards that are archived
+    # Backup organizations
     parser.add_argument('-o', '--organizations',
                         dest='orgs',
                         action='store_const',
