@@ -64,8 +64,7 @@ def _get_full_board(board_id, archived_lists, archived_cards):
 
 
 def _mkdir(name):
-    if not os.access(name, os.R_OK):
-        os.mkdir(name)
+    os.makedirs(name, exist_ok=True)
 
 
 def _get_attachments(board, options):
@@ -73,7 +72,24 @@ def _get_attachments(board, options):
         for attachment in card['attachments']:
             if attachment['bytes'] is None or attachment['bytes'] >= options.attachment_size:
                 continue
-            yield attachment['id'], attachment['url']
+            yield card['id'], attachment['id'], attachment['url']
+
+
+def _save_attachment(folder, attachment_id, attachment_url):
+    _mkdir(folder)
+
+    try:
+        content = requests.get(attachment_url, stream=True, timeout=ATTACHMENT_REQUEST_TIMEOUT)
+    except requests.RequestException:
+        logging.error('Failed to download: {}'.format(attachment_url))
+        return
+
+    extension = os.path.splitext(attachment_url)[1]
+    attachment_file = os.path.join(folder, attachment_id + extension)
+    with open(attachment_file, 'wb') as f:
+        for chunk in content.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
 
 
 def _save_to_disk(options):
@@ -105,12 +121,16 @@ def _save_to_disk(options):
 
             full_board = _get_full_board(board['id'], options.archived_lists, options.archived_cards)
 
-            # TODO: _get_attachments(full_board, options)
-
             board_file = os.path.join(destination, organization, '{}.json'.format(board['id']))
             if not options.dry_run:
                 _write_file(board_file, full_board, dumps=True)
             _log('Saved board {} to {}'.format(board['name'], board_file))
+
+            for card_id, attachment_id, attachment_url in _get_attachments(full_board, options):
+                folder = os.path.join(destination, organization, board['id'], card_id)
+                if not options.dry_run:
+                    _save_attachment(folder, attachment_id, attachment_url)
+                _log('Downloaded attachment {} to {}'.format(attachment_url, folder))
 
 
 def _parse_args():
