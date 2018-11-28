@@ -235,6 +235,14 @@ def cli():
                         const=1,
                         help='Backup archived cards')
 
+    # Backup my boards
+    parser.add_argument('-m', '--my-boards',
+                        dest='my_boards',
+                        action='store_const',
+                        default=False,
+                        const=True,
+                        help='Backup my personal boards')
+
     # Backup organizations
     parser.add_argument('-o', '--organizations',
                         dest='orgs',
@@ -269,10 +277,17 @@ def cli():
 
     os.chdir(dest_dir)
 
+    # If neither -m or -o args specified, default to my boards only
+    if not (args.my_boards or args.orgs):
+        args.my_boards = True
+        print('No backup specified (-m and -o switches omitted). Backing up personal boards.')
+
     print('==== Backup initiated')
     print('Backing up to:', dest_dir)
     print('Incremental:', bool(args.incremental))
     print('Tokenize:', bool(args.tokenize))
+    print('Backup my boards:', bool(args.my_boards))
+    print('Backup organization boards:', bool(args.orgs))
     print('Backup closed board:', bool(args.closed_boards))
     print('Backup archived lists:', bool(args.archived_lists))
     print('Backup archived cards:', bool(args.archived_cards))
@@ -282,8 +297,9 @@ def cli():
 
     org_boards_data = {}
 
-    my_boards_url = '{}members/me/boards{}'.format(API, auth)
-    org_boards_data['me'] = requests.get(my_boards_url).json()
+    if args.my_boards:
+        my_boards_url = '{}members/me/boards{}'.format(API, auth)
+        org_boards_data['me'] = requests.get(my_boards_url).json()
 
     orgs = []
     if args.orgs:
