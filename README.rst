@@ -140,10 +140,13 @@ Options
       -B, --closed-boards   Backup closed board
       -L, --archived-lists  Backup archived lists
       -C, --archived-cards  Backup archived cards
+      -m, --my-boards       Backup my personal boards
       -o, --organizations   Backup organizations
       -a [ATTACHMENT_SIZE], --attachment-size [ATTACHMENT_SIZE]
                             Attachment size limit in bytes. Set to -1 to disable
                             the limit
+
+If neither the ``-m`` or ``-o`` switches are specified, the script will default to backing up personal boards only.
 
 Incremental mode
 ----------------
