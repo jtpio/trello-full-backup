@@ -104,6 +104,14 @@ def download_attachments(c, max_size, tokenize=False):
         os.chdir('..')
 
 
+def download_card_actions_json(card_id):
+    content = requests.get(''.join((
+        '{}cards/{}/actions{}&'.format(API, card_id, auth),
+        'actions=all',
+    ))).json()
+    return content
+
+
 def backup_card(id_card, c, attachment_size, tokenize=False):
     ''' Backup the card <c> with id <id_card> '''
     card_name = get_name(tokenize, c["name"], c['shortLink'], id_card)
@@ -115,11 +123,14 @@ def backup_card(id_card, c, attachment_size, tokenize=False):
 
     meta_file_name = 'card.json'
     description_file_name = 'description.md'
+    actions_file_name = 'actions.json'
 
     print('Saving', card_name)
-    print('Saving', meta_file_name, 'and', description_file_name)
+    print('Saving', meta_file_name, ', ', description_file_name, 'and',
+          actions_file_name)
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
+    write_file(actions_file_name, download_card_actions_json(c['id']))
 
     download_attachments(c, attachment_size, tokenize)
 
