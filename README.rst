@@ -135,11 +135,13 @@ Options
       -h, --help            show this help message and exit
       -d [DEST]             Destination folder
       -i, --incremental     Backup in an already existing folder incrementally
-      -t, --tokenize        Tokenize the names for folders and files. Useful for
-                            scripts
+      -t, --tokenize        Tokenize the names for folders and files
+                            Useful for scripts
       -B, --closed-boards   Backup closed board
       -L, --archived-lists  Backup archived lists
       -C, --archived-cards  Backup archived cards
+      -M, --mark-closed     Mark the names for folders and files as closed
+                            Useful for human readability
       -m, --my-boards       Backup my personal boards
       -o, --organizations   Backup organizations
       -a [ATTACHMENT_SIZE], --attachment-size [ATTACHMENT_SIZE]
