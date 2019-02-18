@@ -10,7 +10,8 @@ import json
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
 ATTACHMENT_REQUEST_TIMEOUT = 30  # 30 seconds
-FILE_NAME_MAX_LENGTH = 100
+# 260 - 9 for ' (closed)'
+FILE_NAME_MAX_LENGTH = 251
 FILTERS = ['open', 'all']
 
 API = 'https://api.trello.com/1/'
@@ -37,7 +38,7 @@ def get_name(tokenize, real_name, backup_name, element_id):
     ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
-    name = backup_name if tokenize else sanitize_file_name(real_name)
+    name = sanitize_file_name(backup_name if tokenize else real_name)
     return '{}_{}'.format(element_id, name)
 
 
@@ -72,12 +73,12 @@ def download_attachments(c, max_size, tokenize=False):
 
         # Download attachments
         for id_attachment, attachment in enumerate(attachments):
-            extension = get_extension(attachment["name"])
+            extension = get_extension(attachment['name'])
             # Keep the size in bytes to backup modifications in the file
             backup_name = '{}_{}{}'.format(attachment['id'],
                                            attachment['bytes'],
                                            extension)
-            attachment_name = get_name(tokenize, attachment["name"],
+            attachment_name = get_name(tokenize, attachment['name'],
                                        backup_name,
                                        id_attachment)
 
@@ -104,9 +105,11 @@ def download_attachments(c, max_size, tokenize=False):
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size, tokenize=False):
+def backup_card(id_card, c, attachment_size, tokenize=False, mark_closed=False):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = get_name(tokenize, c["name"], c['shortLink'], id_card)
+    card_name = get_name(tokenize, c['name'], c['shortLink'], id_card)
+    if mark_closed and c['closed']:
+        card_name += ' (closed)'
 
     mkdir(card_name)
 
@@ -131,9 +134,10 @@ def backup_board(board, args):
     ''' Backup the board '''
 
     tokenize = bool(args.tokenize)
+    mark_closed = bool(args.mark_closed)
 
     board_details = requests.get(''.join((
-        '{}boards/{}{}&'.format(API, board["id"], auth),
+        '{}boards/{}{}&'.format(API, board['id'], auth),
         'actions=all&actions_limit=1000&',
         'cards={}&'.format(FILTERS[args.archived_cards]),
         'card_attachments=true&',
@@ -145,7 +149,9 @@ def backup_board(board, args):
         'fields=all'
     ))).json()
 
-    board_dir = sanitize_file_name(board_details['name'])
+    board_dir = sanitize_file_name(board_details['id'] if tokenize else board_details['name'])
+    if mark_closed and board_details['closed']:
+        board_dir += ' (closed)'
 
     mkdir(board_dir)
 
@@ -163,7 +169,9 @@ def backup_board(board, args):
         lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
-        list_name = get_name(tokenize, ls['name'], ls["id"], id_list)
+        list_name = get_name(tokenize, ls['name'], ls['id'], id_list)
+        if mark_closed and ls['closed']:
+            list_name += ' (closed)'
 
         mkdir(list_name)
 
@@ -172,13 +180,19 @@ def backup_board(board, args):
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            backup_card(id_card, c, args.attachment_size, tokenize)
+            backup_card(id_card, c, args.attachment_size, tokenize, mark_closed)
 
         # Exit list directory
         os.chdir('..')
 
     # Exit sub directory
     os.chdir('..')
+
+
+def backup_boards(boards, args):
+    filtered_boards = filter_boards(boards, args.closed_boards)
+    for board in filtered_boards:
+        backup_board(board, args)
 
 
 def cli():
@@ -235,6 +249,15 @@ def cli():
                         const=1,
                         help='Backup archived cards')
 
+    # Mark the names for folders and files as closed
+    parser.add_argument('-M', '--mark-closed',
+                        dest='mark_closed',
+                        action='store_const',
+                        default=False,
+                        const=True,
+                        help='Suffix folder and file names with \'(closed)\'')
+
+
     # Backup my boards
     parser.add_argument('-m', '--my-boards',
                         dest='my_boards',
@@ -286,20 +309,21 @@ def cli():
     print('Backing up to:', dest_dir)
     print('Incremental:', bool(args.incremental))
     print('Tokenize:', bool(args.tokenize))
-    print('Backup my boards:', bool(args.my_boards))
+    print('Backup personal boards:', bool(args.my_boards))
     print('Backup organization boards:', bool(args.orgs))
     print('Backup closed board:', bool(args.closed_boards))
     print('Backup archived lists:', bool(args.archived_lists))
     print('Backup archived cards:', bool(args.archived_cards))
+    print('Mark closed:', bool(args.mark_closed))
     print('Attachment size limit (bytes):', args.attachment_size)
     print('==== ')
     print()
 
-    org_boards_data = {}
+    my_boards_data = {}
 
     if args.my_boards:
         my_boards_url = '{}members/me/boards{}'.format(API, auth)
-        org_boards_data['me'] = requests.get(my_boards_url).json()
+        my_boards_data = requests.get(my_boards_url).json()
 
     orgs = []
     if args.orgs:
@@ -308,14 +332,44 @@ def cli():
 
     for org in orgs:
         boards_url = '{}organizations/{}/boards{}'.format(API, org['id'], auth)
-        org_boards_data[org['name']] = requests.get(boards_url).json()
+        boards_data = requests.get(boards_url).json()
+        
+        # Remove organization boards from personal boards
+        for board in boards_data:
+            my_boards_data.remove(board)
 
-    for org, boards in org_boards_data.items():
-        mkdir(org)
-        os.chdir(org)
-        boards = filter_boards(boards, args.closed_boards)
-        for board in boards:
-            backup_board(board, args)
+        org_dir = sanitize_file_name(org['id'] if bool(args.tokenize) else org['displayName'] + ' (' + org['name'] + ')')
+
+        print('Processing', org_dir)
+        
+        mkdir(org_dir)
+        
+        # Enter board directory
+        os.chdir(org_dir)
+        
+        file_name = '{}_full.json'.format(org_dir)
+        print('Saving full json for organization',
+              org['displayName'], 'with id', org['id'], 'to', file_name)
+        write_file(file_name, org)
+
+        backup_boards(boards_data, args)
+
+        # Exit sub directory
+        os.chdir('..')
+
+    if len(my_boards_data) > 0:
+        org_dir = sanitize_file_name('Personal Boards (me)')
+
+        print('Processing', org_dir)
+
+        mkdir(org_dir)
+                    
+        # Enter board directory
+        os.chdir(org_dir)
+
+        backup_boards(my_boards_data, args)
+
+        # Exit sub directory
         os.chdir('..')
 
     print('Trello Full Backup Completed!')
