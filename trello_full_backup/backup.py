@@ -308,7 +308,11 @@ def cli():
 
     for org in orgs:
         boards_url = '{}organizations/{}/boards{}'.format(API, org['id'], auth)
-        org_boards_data[org['name']] = requests.get(boards_url).json()
+        boards_data = requests.get(boards_url).json()
+        # Remove organization boards from my boards
+        for board in boards_data:
+            org_boards_data['me'].remove(board)
+        org_boards_data[org['name']] = boards_data
 
     for org, boards in org_boards_data.items():
         mkdir(org)
