@@ -262,6 +262,10 @@ def cli():
 
     args = parser.parse_args()
 
+    if API_KEY == "" or API_TOKEN == "":
+            print("The environment variables TRELLO_API_KEY and TRELLO_TOKEN are not set")
+            sys.exit(1)
+
     dest_dir = datetime.datetime.now().isoformat('_')
     dest_dir = '{}_backup'.format(dest_dir.replace(':', '-').split('.')[0])
 
