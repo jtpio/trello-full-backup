@@ -43,7 +43,7 @@ def get_name(tokenize, real_name, backup_name, element_id):
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
-    return re.sub(r'[<>:\/\|\?\*\']', '_', name)[:FILE_NAME_MAX_LENGTH]
+    return re.sub(r'[<>:\/\|\?\*\'\:\"\<\>\\]', '_', name)[:FILE_NAME_MAX_LENGTH]
 
 
 def write_file(file_name, obj, dumps=True):
