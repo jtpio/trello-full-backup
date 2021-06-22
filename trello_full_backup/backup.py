@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import itertools
 import os
@@ -33,12 +35,17 @@ def get_extension(filename):
     return os.path.splitext(filename)[1]
 
 
-def get_name(tokenize, real_name, backup_name, element_id):
+def get_name(tokenize, real_name, backup_name, element_id=None):
     ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
-    name = backup_name if tokenize else sanitize_file_name(real_name)
-    return '{}_{}'.format(element_id, name)
+    if tokenize:
+        name = backup_name
+    elif element_id is None:
+        name = '{}'.format(sanitize_file_name(real_name))
+    else:    
+        name = '{}_{}'.format(element_id, sanitize_file_name(real_name))
+    return name
 
 
 def sanitize_file_name(name):
@@ -106,7 +113,7 @@ def download_attachments(c, max_size, tokenize=False):
 
 def backup_card(id_card, c, attachment_size, tokenize=False):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = get_name(tokenize, c["name"], c['shortLink'], id_card)
+    card_name = get_name(tokenize, c["name"], c['id'], id_card)
 
     mkdir(card_name)
 
@@ -144,8 +151,10 @@ def backup_board(board, args):
         'checklists=all&',
         'fields=all'
     ))).json()
-
-    board_dir = sanitize_file_name(board_details['name'])
+    
+    board_dir = get_name(tokenize,
+                         board_details['name'],
+                         board_details['id'])
 
     mkdir(board_dir)
 
