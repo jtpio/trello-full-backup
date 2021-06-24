@@ -25,7 +25,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
     ],
-    install_requires=['requests'],
+    install_requires=['requests', 'inflection'],
     python_requires='>=3.4',
     entry_points={
         'console_scripts': [
