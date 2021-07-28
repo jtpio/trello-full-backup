@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import itertools
 import os
@@ -6,6 +8,7 @@ import re
 import datetime
 import requests
 import json
+import inflection
 
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
@@ -26,24 +29,35 @@ def mkdir(name):
     ''' Make a folder if it does not exist already '''
     if not os.access(name, os.R_OK):
         os.mkdir(name)
-
+        
+def purge_symlinks():
+    ''' Remove all symlinks from the current folder '''
+    for file in os.listdir():
+        if os.path.islink(file):
+            os.remove(file)
 
 def get_extension(filename):
     ''' Get the extension of a file '''
     return os.path.splitext(filename)[1]
 
 
-def get_name(tokenize, real_name, backup_name, element_id):
+def get_name(tokenize, real_name, backup_name, element_id=None):
     ''' Get back the name for the tokenize mode or the real name in the card.
         If there is an ID, keep it
     '''
-    name = backup_name if tokenize else sanitize_file_name(real_name)
-    return '{}_{}'.format(element_id, name)
+    if tokenize:
+        name = backup_name
+    elif element_id is None:
+        name = '{}'.format(sanitize_file_name(real_name))
+    else:    
+        name = '{}_{}'.format(element_id, sanitize_file_name(real_name))
+    return name
 
 
 def sanitize_file_name(name):
     ''' Stip problematic characters for a file name '''
-    return re.sub(r'[<>:\/\|\?\*\']', '_', name)[:FILE_NAME_MAX_LENGTH]
+    new_name = re.sub(r'[<>:\/\|\?\*\']', '_', name)[:FILE_NAME_MAX_LENGTH]
+    return inflection.transliterate(new_name)  # Change accented characters to ascii
 
 
 def write_file(file_name, obj, dumps=True):
@@ -58,7 +72,7 @@ def filter_boards(boards, closed):
     return [b for b in boards if not b['closed'] or closed]
 
 
-def download_attachments(c, max_size, tokenize=False):
+def download_attachments(c, max_size, tokenize=False, symlinks=False):
     ''' Download the attachments for the card <c> '''
     # Only download attachments below the size limit
     attachments = [a for a in c['attachments']
@@ -69,6 +83,8 @@ def download_attachments(c, max_size, tokenize=False):
         # Enter attachments directory
         mkdir('attachments')
         os.chdir('attachments')
+        if symlinks:
+            purge_symlinks()        
 
         # Download attachments
         for id_attachment, attachment in enumerate(attachments):
@@ -82,36 +98,51 @@ def download_attachments(c, max_size, tokenize=False):
                                        id_attachment)
 
             # We check if the file already exists, if it is the case we skip it
-            if os.path.isfile(attachment_name):
+            if not os.path.isfile(attachment_name):
+                print('Saving attachment', attachment_name)
+                try:
+                    content = requests.get(attachment['url'],
+                                           stream=True,
+                                           timeout=ATTACHMENT_REQUEST_TIMEOUT)
+                except Exception:
+                    sys.stderr.write('Failed download: {}'.format(attachment_name))
+                    continue
+
+                with open(attachment_name, 'wb') as f:
+                    for chunk in content.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
+                            
+            else:
                 print('Attachment', attachment_name, 'exists already.')
-                continue
 
-            print('Saving attachment', attachment_name)
-            try:
-                content = requests.get(attachment['url'],
-                                       stream=True,
-                                       timeout=ATTACHMENT_REQUEST_TIMEOUT)
-            except Exception:
-                sys.stderr.write('Failed download: {}'.format(attachment_name))
-                continue
-
-            with open(attachment_name, 'wb') as f:
-                for chunk in content.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
+            if symlinks:
+                try:                     
+                    os.symlink(attachment_name, get_name(False,
+                                                         attachment["name"],
+                                                         backup_name, id_attachment))
+                except FileExistsError:
+                    pass
 
         # Exit attachments directory
         os.chdir('..')
 
 
-def backup_card(id_card, c, attachment_size, tokenize=False):
+def backup_card(id_card, c, attachment_size, tokenize=False, symlinks=False):
     ''' Backup the card <c> with id <id_card> '''
-    card_name = get_name(tokenize, c["name"], c['shortLink'], id_card)
+    card_name = get_name(tokenize, c["name"], c['id'], id_card)
 
     mkdir(card_name)
+    if symlinks:
+        try:
+            os.symlink(card_name, get_name(False, c["name"], c['id'], id_card))
+        except FileExistsError:
+            pass
 
     # Enter card directory
     os.chdir(card_name)
+    if symlinks:
+        purge_symlinks()
 
     meta_file_name = 'card.json'
     description_file_name = 'description.md'
@@ -121,7 +152,7 @@ def backup_card(id_card, c, attachment_size, tokenize=False):
     write_file(meta_file_name, c)
     write_file(description_file_name, c['desc'], dumps=False)
 
-    download_attachments(c, attachment_size, tokenize)
+    download_attachments(c, attachment_size, tokenize, symlinks)
 
     # Exit card directory
     os.chdir('..')
@@ -131,6 +162,7 @@ def backup_board(board, args):
     ''' Backup the board '''
 
     tokenize = bool(args.tokenize)
+    symlinks = bool(args.symlinks)
 
     board_details = requests.get(''.join((
         '{}boards/{}{}&'.format(API, board["id"], auth),
@@ -144,14 +176,27 @@ def backup_board(board, args):
         'checklists=all&',
         'fields=all'
     ))).json()
-
-    board_dir = sanitize_file_name(board_details['name'])
+    
+    board_dir = get_name(tokenize,
+                         board_details['name'],
+                         board_details['id'])
 
     mkdir(board_dir)
+    
+    if symlinks:
+        try:
+            os.symlink(board_dir, get_name(False,
+                                           board_details['name'],
+                                           board_details['id']))
+        except FileExistsError:
+            pass
+
 
     # Enter board directory
     os.chdir(board_dir)
-
+    if symlinks:
+        purge_symlinks()
+    
     file_name = '{}_full.json'.format(board_dir)
     print('Saving full json for board',
           board_details['name'], 'with id', board['id'], 'to', file_name)
@@ -167,12 +212,21 @@ def backup_board(board, args):
 
         mkdir(list_name)
 
+        if symlinks:
+            try:
+                os.symlink(list_name, get_name(False, ls['name'], ls["id"], id_list))
+            except FileExistsError:
+                pass
+                
+
         # Enter list directory
         os.chdir(list_name)
+        if symlinks:
+            purge_symlinks()
         cards = lists[ls['id']] if ls['id'] in lists else []
 
         for id_card, c in enumerate(cards):
-            backup_card(id_card, c, args.attachment_size, tokenize)
+            backup_card(id_card, c, args.attachment_size, tokenize, symlinks)
 
         # Exit list directory
         os.chdir('..')
@@ -209,7 +263,15 @@ def cli():
                         action='store_const',
                         default=False,
                         const=True,
-                        help='Name folders and files using the shortlink')
+                        help='Name folders and files using the long ID')
+
+    # Create links to tokens
+    parser.add_argument('-s', '--symlinks',
+                        dest='symlinks',
+                        action='store_const',
+                        default=False,
+                        const=True,
+                        help='Create named symlinks to tokens (on OSes that accept symlinks).')
 
     # Backup the boards that are closed
     parser.add_argument('-B', '--closed-boards',
@@ -267,6 +329,9 @@ def cli():
 
     if args.d:
         dest_dir = args.d
+        
+    if bool(args.symlinks):
+        args.tokenize = True
 
     if os.access(dest_dir, os.R_OK):
         if not bool(args.incremental):
@@ -276,6 +341,9 @@ def cli():
     mkdir(dest_dir)
 
     os.chdir(dest_dir)
+    if bool(args.symlinks):
+        purge_symlinks()
+    
 
     # If neither -m or -o args specified, default to my boards only
     if not (args.my_boards or args.orgs):
@@ -313,6 +381,8 @@ def cli():
     for org, boards in org_boards_data.items():
         mkdir(org)
         os.chdir(org)
+        if bool(args.symlinks):
+            purge_symlinks()
         boards = filter_boards(boards, args.closed_boards)
         for board in boards:
             backup_board(board, args)
