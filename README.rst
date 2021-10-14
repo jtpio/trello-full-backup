@@ -10,6 +10,14 @@ Trello Full Backup
 .. image:: https://img.shields.io/docker/automated/jtpio/trello-full-backup.svg?style=flat-square
     :target: https://hub.docker.com/r/jtpio/trello-full-backup/
 
+
+Archived
+--------
+
+This project is archived and is no longer developed.
+
+----
+
 Backup everything from Trello:
 
 - boards, open and closed, as json files
