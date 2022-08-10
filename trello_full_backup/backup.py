@@ -6,6 +6,7 @@ import re
 import datetime
 import requests
 import json
+import traceback
 
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
@@ -318,13 +319,31 @@ def cli():
         boards_request.raise_for_status()
         org_boards_data[org['name']] = boards_request.json()
 
+    # List of tuples (board, exception, formatted traceback)
+    board_failures = []
     for org, boards in org_boards_data.items():
         mkdir(org)
         os.chdir(org)
         boards = filter_boards(boards, args.closed_boards)
         for board in boards:
-            backup_board(board, args)
+            try:
+                backup_board(board, args)
+            except Exception as e:
+                board_failures.append((board, e, traceback.format_exc()))
         os.chdir('..')
+
+    if board_failures:
+        print()
+        for board, exception, formatted_traceback in board_failures:
+            print('Failed to backup board {} ({})'.format(
+                board["id"], board["name"]))
+            print(formatted_traceback)
+
+        if len(board_failures) == 1:
+            raise board_failures[0][1]
+        else:
+            raise Exception([exception for board, exception, formatted_traceback
+                             in board_failures])
 
     print('Trello Full Backup Completed!')
 
