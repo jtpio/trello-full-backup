@@ -1,5 +1,5 @@
 import sys
-import itertools
+import collections
 import os
 import argparse
 import re
@@ -157,10 +157,11 @@ def backup_board(board, args):
           board_details['name'], 'with id', board['id'], 'to', file_name)
     write_file(file_name, board_details)
 
-    lists = {}
-    cs = itertools.groupby(board_details['cards'], key=lambda x: x['idList'])
-    for list_id, cards in cs:
-        lists[list_id] = sorted(list(cards), key=lambda card: card['pos'])
+    lists = collections.defaultdict(list)
+    for card in board_details['cards']:
+        lists[card['idList']].append(card)
+    for list_cards in lists.values():
+        list_cards.sort(key=lambda card: card['pos'])
 
     for id_list, ls in enumerate(board_details['lists']):
         list_name = get_name(tokenize, ls['name'], ls["id"], id_list)
@@ -169,7 +170,7 @@ def backup_board(board, args):
 
         # Enter list directory
         os.chdir(list_name)
-        cards = lists[ls['id']] if ls['id'] in lists else []
+        cards = lists[ls['id']]
 
         for id_card, c in enumerate(cards):
             backup_card(id_card, c, args.attachment_size, tokenize)
