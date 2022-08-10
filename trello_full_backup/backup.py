@@ -6,6 +6,7 @@ import re
 import datetime
 import requests
 import json
+import traceback
 
 # Do not download files over 100 MB by default
 ATTACHMENT_BYTE_LIMIT = 100000000
@@ -132,7 +133,7 @@ def backup_board(board, args):
 
     tokenize = bool(args.tokenize)
 
-    board_details = requests.get(''.join((
+    board_request = requests.get(''.join((
         '{}boards/{}{}&'.format(API, board["id"], auth),
         'actions=all&actions_limit=1000&',
         'cards={}&'.format(FILTERS[args.archived_cards]),
@@ -143,7 +144,9 @@ def backup_board(board, args):
         'member_fields=all&',
         'checklists=all&',
         'fields=all'
-    ))).json()
+    )))
+    board_request.raise_for_status()
+    board_details = board_request.json()
 
     board_dir = sanitize_file_name(board_details['name'])
 
@@ -299,24 +302,48 @@ def cli():
 
     if args.my_boards:
         my_boards_url = '{}members/me/boards{}'.format(API, auth)
-        org_boards_data['me'] = requests.get(my_boards_url).json()
+        my_boards_request = requests.get(my_boards_url)
+        my_boards_request.raise_for_status()
+        org_boards_data['me'] = my_boards_request.json()
 
     orgs = []
     if args.orgs:
         org_url = '{}members/me/organizations{}'.format(API, auth)
-        orgs = requests.get(org_url).json()
+        org_request = requests.get(org_url)
+        org_request.raise_for_status()
+        orgs = org_request.json()
 
     for org in orgs:
         boards_url = '{}organizations/{}/boards{}'.format(API, org['id'], auth)
-        org_boards_data[org['name']] = requests.get(boards_url).json()
+        boards_request = requests.get(boards_url)
+        boards_request.raise_for_status()
+        org_boards_data[org['name']] = boards_request.json()
 
+    # List of tuples (board, exception, formatted traceback)
+    board_failures = []
     for org, boards in org_boards_data.items():
         mkdir(org)
         os.chdir(org)
         boards = filter_boards(boards, args.closed_boards)
         for board in boards:
-            backup_board(board, args)
+            try:
+                backup_board(board, args)
+            except Exception as e:
+                board_failures.append((board, e, traceback.format_exc()))
         os.chdir('..')
+
+    if board_failures:
+        print()
+        for board, exception, formatted_traceback in board_failures:
+            print('Failed to backup board {} ({})'.format(
+                board["id"], board["name"]))
+            print(formatted_traceback)
+
+        if len(board_failures) == 1:
+            raise board_failures[0][1]
+        else:
+            raise Exception([exception for board, exception, formatted_traceback
+                             in board_failures])
 
     print('Trello Full Backup Completed!')
 
