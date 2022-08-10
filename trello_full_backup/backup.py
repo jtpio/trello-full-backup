@@ -170,7 +170,7 @@ def backup_board(board, args):
 
         # Enter list directory
         os.chdir(list_name)
-        cards = lists[ls['id']] if ls['id'] in lists else []
+        cards = lists[ls['id']]
 
         for id_card, c in enumerate(cards):
             backup_card(id_card, c, args.attachment_size, tokenize)
